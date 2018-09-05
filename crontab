@@ -1,0 +1,3 @@
+5 0 * * * /root/dh.sh > /var/log/disk_`date +\%F`.log
+*/10 * * * * /root/ds.sh >> /var/log/disk_`date +\%F`.log
+*/10 * * * * /root/moni.sh > /var/log/moni_`date +\%F`.html
