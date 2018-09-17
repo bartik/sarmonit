@@ -8,26 +8,27 @@ if ! [ -e "${SADFMEM}" ]; then
   SADFMEM=""
 fi
 
-# Input data files
+# Input data
+# CPU
 FILE_CPU="/tmp/cpu.txt"
-FILE_MEM="/tmp/mem.txt"
-sadf -t ${SADFCPU} -- -r > ${FILE_MEM}
+FLIP_CPU="/tmp/cpu.flip"
 sadf -h -t -P 1 ${SADFMEM} > ${FILE_CPU}
+/root/flip.sh ${FILE_CPU} > ${FLIP_CPU}
 
-# Interim data files
-FILE_CPU_DATE="/tmp/cpu_date.txt"
-FILE_CPU_USER="/tmp/cpu_user.txt"
-FILE_CPU_SYST="/tmp/cpu_syst.txt"
-awk -F';' 'BEGIN { ORS="" ; print "x: [" ; ORS="," ; } /^[^#]/ { print "'\''" $3 "'\''" ; } END { print "]" ; } ' ${FILE_CPU} | sed -e 's/,\]/\]/' > ${FILE_CPU_DATE}
-awk -F';' 'BEGIN { ORS="" ; print "y: [" ; ORS="," ; } /^[^#]/ { print  $5 ; } END { print "]" ; } ' ${FILE_CPU} | sed -e 's/,\]/\]/' > ${FILE_CPU_USER}
-awk -F';' 'BEGIN { ORS="" ; print "y: [" ; ORS="," ; } /^[^#]/ { print  $7 ; } END { print "]" ; } ' ${FILE_CPU} | sed -e 's/,\]/\]/' > ${FILE_CPU_SYST}
+# Memory
+FILE_MEM="/tmp/mem.txt"
+FLIP_MEM="/tmp/mem.flip"
+sadf -t ${SADFCPU} -- -r > ${FILE_MEM}
+/root/flip.sh ${FILE_MEM} > ${FLIP_MEM}
 
-FILE_MEM_DATE="/tmp/mem_date.txt"
-FILE_MEM_FREE="/tmp/mem_free.txt"
-FILE_MEM_USED="/tmp/mem_used.txt"
-awk -F';' 'BEGIN { ORS="" ; print "x: [" ; ORS="," ; } /^[^#]/ { print "'\''" $3 "'\''" ; } END { print "]" ; } ' ${FILE_MEM} | sed -e 's/,\]/\]/' > ${FILE_MEM_DATE}
-awk -F';' 'BEGIN { ORS="" ; print "y: [" ; ORS="," ; } /^[^#]/ { print $4+$7+$8 ; } END { print "]" ; } ' ${FILE_MEM} | sed -e 's/,\]/\]/' > ${FILE_MEM_FREE}
-awk -F';' 'BEGIN { ORS="" ; print "y: [" ; ORS="," ; } /^[^#]/ { print $9 ; } END { print "]" ; } ' ${FILE_MEM} | sed -e 's/,\]/\]/' > ${FILE_MEM_USED}
+# Disk
+FILE_DISK="/var/log/disk_2018-09-05.log"
+FLIP_DISK="/tmp/disk.flip"
+/root/flip.sh ${FILE_DISK} > ${FLIP_DISK}
+
+# control data
+declare -A METRIC_FILE=( ["CPU"]="${FLIP_CPU}" ["MEM"]="${FLIP_MEM}" ["DISK"]="${FLIP_DISK}" ["MEM2"]="${FLIP_MEM}" )
+declare -A METRIC_DATA=( ["CPU"]="%user %nice %system %iowait %steal" ["MEM"]="%memused %commit" ["DISK"]="/boot /home /opt /tmp /var /var/log /var/log/audit" ["MEM2"]="kbmemused kbbuffers kbcached kbcommit" )
 
 # html output
 cat << 'EOF'
@@ -37,66 +38,52 @@ cat << 'EOF'
 </head>
 
 <body>
-  <div id="CpuDiv"><!-- Plotly chart will be drawn inside this DIV --></div>
-  <div id="MemDiv"><!-- Plotly chart will be drawn inside this DIV --></div>
+EOF
+
+# generate the div
+for tmpj in "${!METRIC_DATA[@]}"
+do
+  echo "<div id=\"${tmpj}Div\"><!-- Plotly chart will be drawn inside this DIV --></div>"
+done
+
+cat << 'EOF'
   <script>
-var user = {
 EOF
-cat ${FILE_CPU_DATE}
-echo
-cat ${FILE_CPU_USER}
-echo
+
+for tmpj in "${!METRIC_FILE[@]}"
+do
+  for tmpi in ${METRIC_DATA[$tmpj]}
+  do
+    tmpk=`echo ${tmpi}|sed -e 's/ /,data/g' -e 's@[/%]@_@g' -e 's/^/data/'`
+    echo "var ${tmpk} = {"
+    grep "timestamp" ${METRIC_FILE[$tmpj]}|sed -e 's/^[^;]*;/x: ['\''/' -e 's/;/'\'','\''/g' -e 's/$/'\''],/'
+    grep "^${tmpi}" ${METRIC_FILE[$tmpj]}|sed -e 's/^[^;]*;/y: [/' -e 's/;/,/g' -e 's/$/],/'
+    echo "mode: 'lines+markers',"
+    echo "name: '${tmpi}'"
+    echo "};"
+  done
+done
+
+for tmpj in "${!METRIC_FILE[@]}"
+do
+  tmpk=`echo ${METRIC_DATA[$tmpj]}|sed -e 's/ /,data/g' -e 's@[/%]@_@g' -e 's/^/data/'`
+  echo "var ${tmpj}_data = [ ${tmpk} ];"
+done
+echo 
+
+for tmpj in "${!METRIC_FILE[@]}"
+do
+  echo "var ${tmpj}_layout = {"
+  echo "  title:'${tmpj}'"
+  echo "};"
+done
+
+for tmpj in "${!METRIC_FILE[@]}"
+do
+  echo "Plotly.newPlot('${tmpj}Div', ${tmpj}_data, ${tmpj}_layout);"
+done
+
 cat << 'EOF'
-  mode: 'lines+markers',
-  name: 'user'
-};
-
-var system = {
-EOF
-cat ${FILE_CPU_DATE}
-echo
-cat ${FILE_CPU_SYST}
-echo
-cat << 'EOF'
-  mode: 'lines+markers',
-  name: 'system'
-};
-
-var free = {
-EOF
-cat ${FILE_MEM_DATE}
-echo
-cat ${FILE_MEM_FREE}
-echo
-cat << 'EOF'
-  mode: 'lines+markers',
-  name: 'free'
-};
-
-var used = {
-EOF
-cat ${FILE_MEM_DATE}
-echo
-cat ${FILE_MEM_USED}
-echo
-cat << 'EOF'
-  mode: 'lines+markers',
-  name: 'overall used'
-};
-
-var cpu_data = [ user, system ];
-var mem_data = [ free ];
-
-var cpu_layout = {
-  title:'CPU'
-};
-
-var mem_layout = {
-  title:'MEM'
-};
-
-Plotly.newPlot('CpuDiv', cpu_data, cpu_layout);
-Plotly.newPlot('MemDiv', mem_data, mem_layout);
   </script>
 </body>
 EOF
