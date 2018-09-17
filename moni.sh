@@ -10,25 +10,30 @@ fi
 
 # Input data
 # CPU
-FILE_CPU="/tmp/cpu.txt"
+FILE_CPU="/sarmonit/example/cpu.txt"
 FLIP_CPU="/tmp/cpu.flip"
 sadf -h -t -P 1 ${SADFMEM} > ${FILE_CPU}
-/root/flip.sh ${FILE_CPU} > ${FLIP_CPU}
+/sarmonit/flip.sh ${FILE_CPU} > ${FLIP_CPU}
 
 # Memory
-FILE_MEM="/tmp/mem.txt"
+FILE_MEM="/sarmonit/example/mem.txt"
 FLIP_MEM="/tmp/mem.flip"
 sadf -t ${SADFCPU} -- -r > ${FILE_MEM}
-/root/flip.sh ${FILE_MEM} > ${FLIP_MEM}
+/sarmonit/flip.sh ${FILE_MEM} > ${FLIP_MEM}
 
 # Disk
-FILE_DISK="/var/log/disk_2018-09-05.log"
+FILE_DISK="/sarmonit/example/disk.txt"
 FLIP_DISK="/tmp/disk.flip"
-/root/flip.sh ${FILE_DISK} > ${FLIP_DISK}
+/sarmonit/flip.sh ${FILE_DISK} > ${FLIP_DISK}
+
+# temperature
+FILE_TEMP="/sarmonit/example/temp.txt"
+FLIP_TEMP="/tmp/temp.flip"
+/sarmonit/flip.sh ${FILE_TEMP} > ${FLIP_TEMP}
 
 # control data
-declare -A METRIC_FILE=( ["CPU"]="${FLIP_CPU}" ["MEM"]="${FLIP_MEM}" ["DISK"]="${FLIP_DISK}" ["MEM2"]="${FLIP_MEM}" )
-declare -A METRIC_DATA=( ["CPU"]="%user %nice %system %iowait %steal" ["MEM"]="%memused %commit" ["DISK"]="/boot /home /opt /tmp /var /var/log /var/log/audit" ["MEM2"]="kbmemused kbbuffers kbcached kbcommit" )
+declare -A METRIC_FILE=( ["TEMPERATURE"]="${FLIP_TEMP}" ["CPU"]="${FLIP_CPU}" ["MEM"]="${FLIP_MEM}" ["DISK"]="${FLIP_DISK}" ["MEM2"]="${FLIP_MEM}" )
+declare -A METRIC_DATA=( ["TEMPERATURE"]="Eureka Lincoln Newark" ["CPU"]="%user %nice %system %iowait %steal" ["MEM"]="%memused %commit" ["DISK"]="/boot /home /opt /tmp /var /var/log /var/log/audit" ["MEM2"]="kbmemused kbbuffers kbcached kbcommit" )
 
 # html output
 cat << 'EOF'
